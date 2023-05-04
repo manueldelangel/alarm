@@ -8,64 +8,63 @@ from tensorflow.keras.utils import timeseries_dataset_from_array
 
 
 #%%
-# df = pd.read_excel('complete_mock.xlsx')
-df = pd.read_csv('./dataframes/data_preprocessed_seconds.csv')
-df.head()
+df = pd.read_excel('complete_mock.xlsx')
 #%%
-# df = df[['Value', 'DateTime']]
+df = df[['Value', 'DateTime']]
 
-# #%%
-# df.dropna(inplace = True)
+#%%
+df.dropna(inplace = True)
 
-# #%%
-# df['DateTime'] = pd.to_datetime(df['DateTime'], format='%Y-%m-%d %H:%M:%S.%f').dt.floor('s')
-# df.set_index('DateTime', inplace = True)
-# df = df.resample('1T').mean()
 
-# #%%
-# df.dropna(inplace = True)
+ #%%
+df['DateTime'] = pd.to_datetime(df['DateTime'], format='%Y-%m-%d %H:%M:%S.%f').dt.floor('s')
+df.set_index('DateTime', inplace = True)
+df = df.resample('1T').mean()
 
-# #%%
-# from sklearn.preprocessing import StandardScaler
+#%%
+df.dropna(inplace = True)
 
-# scaler = StandardScaler()
-# features = scaler.fit_transform(df)
+#%%
+from sklearn.preprocessing import StandardScaler
+
+scaler = StandardScaler()
+features = scaler.fit_transform(df)
 #%%
 df['DateTime'] = pd.to_datetime(df['DateTime'])
 df.fillna(0, inplace=True)
 df.set_index('DateTime', inplace=True)
 df.head()
 
-#%%
-tags = df.iloc[:,0:3].columns.tolist()
-alarms = df.iloc[:,3:].columns.tolist()
-agg_dict = {col: 'max' if col in alarms else 'mean' for col in df.columns}
-#%%
-numerical_cols = ['GLA3_CO_258_024', 'GLA3_CO_258_028', 'GLA3_CO_258_032']
-categorical_cols = ['alarm_11225', 'downtime', 'alarm_11231']
+# #%%
+# tags = df.iloc[:,0:3].columns.tolist()
+# alarms = df.iloc[:,3:].columns.tolist()
+# agg_dict = {col: 'max' if col in alarms else 'mean' for col in df.columns}
+# #%%
+# numerical_cols = ['GLA3_CO_258_024', 'GLA3_CO_258_028', 'GLA3_CO_258_032']
+# categorical_cols = ['alarm_11225', 'downtime', 'alarm_11231']
 
 #%%
-from sklearn.preprocessing import StandardScaler, LabelEncoder
-scaler = StandardScaler()
-df[numerical_cols] = scaler.fit_transform(df[numerical_cols])
+# from sklearn.preprocessing import StandardScaler, LabelEncoder
+# scaler = StandardScaler()
+# df[numerical_cols] = scaler.fit_transform(df[numerical_cols])
 
-label_encoder = LabelEncoder()
-for col in categorical_cols:
-    df[col] = label_encoder.fit_transform(df[col])
+# label_encoder = LabelEncoder()
+# for col in categorical_cols:
+#     df[col] = label_encoder.fit_transform(df[col])
 #%%
 
 df['standarized'] =  features
 # %%
-fig, ax = plt.subplots()
+# fig, ax = plt.subplots()
 
-ax.plot(df.index, df['Value'])
+# ax.plot(df.index, df['Value'])
 
-ax.set_xlabel('Datetime')
-ax.set_ylabel('Value')
+# ax.set_xlabel('Datetime')
+# ax.set_ylabel('Value')
 
-mpld3.plugins.connect(fig, mpld3.plugins.Zoom())
+# mpld3.plugins.connect(fig, mpld3.plugins.Zoom())
 
-mpld3.show()
+# mpld3.show()
 
 #%%
 
@@ -92,8 +91,9 @@ class WindowGenerator:
         self.label_columns = label_columns
 
         if label_columns is not None:
-            self.label_columns_indices = {name: i for i, name in enumerate(label_columns)}
-        self.column_indices = {name: i for i, name in enumerate(train_df.columns)}
+            self.label_columns_indices = {name: i for i, name in enumerate(label_columns)} #creates a dictionary with the name of the label column and the position
+        
+        self.column_indices = {name: i for i, name in enumerate(train_df.columns)} #creates a dictionary with the name of the train column and the position
 
         self.input_width = input_width
         self.label_width = label_width
@@ -101,6 +101,7 @@ class WindowGenerator:
 
         self.total_window_size = input_width + shift
 
+        #slice(start, end, step)
         self.input_slice = slice(0, input_width) #start in index 0 and take every inp width record
         self.input_indices = np.arange(self.total_window_size)[self.input_slice]
 
@@ -116,10 +117,12 @@ class WindowGenerator:
         f'Label column name(s): {self.label_columns}'])
     
     def split_windows(self, features):
+
+        print(f'features are {features}')
+
         inputs = features[:, self.input_slice, :]
         labels = features[:, self.labels_slice, :]
 
-        print(inputs)
 
         if self.label_columns is not None:
             labels = tf.stack([labels[:, :, self.column_indices[name]] for name in self.label_columns],axis=-1)
@@ -127,7 +130,6 @@ class WindowGenerator:
         inputs.set_shape([None, self.input_width, None])
         labels.set_shape([None, self.label_width, None])
 
-        print(labels)
 
         return inputs, labels
     
@@ -139,9 +141,10 @@ class WindowGenerator:
             targets=None,
             sequence_length=self.total_window_size,
             sequence_stride=1,
-            shuffle=True,
+            shuffle=False,
             batch_size=32,)
         ds = ds.map(self.split_windows)
+        print(f'ds is {ds}')
 
         return ds
 #%%
@@ -151,8 +154,8 @@ window_generator = WindowGenerator(input_width=5, label_width=1,
 
 #%%
 train_ds = window_generator.make_dataset(train_df)
-val_ds = window_generator.make_dataset(train_df)
-test_ds = window_generator.make_dataset(test_df)
+# val_ds = window_generator.make_dataset(train_df)
+# test_ds = window_generator.make_dataset(test_df)
 
 # %%
 batch = next(iter(train_ds.take(1)))
