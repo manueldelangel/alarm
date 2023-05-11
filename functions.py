@@ -11,7 +11,13 @@ from tensorflow.keras.utils import timeseries_dataset_from_array
 class dataToTimeSeries:
 
     def __init__(self, data):
+        data['DateTime'] = (pd.to_datetime(data['DateTime'])).dt.floor('s')
         self.data = data
+
+    def transform_round_and_fill(self, method):
+        data = self.data.copy()
+        data = data.drop_duplicates(subset = ['DateTime'], keep='first').fillna(method=method)
+        return data
     
     def transform(self):
         data =self.data
